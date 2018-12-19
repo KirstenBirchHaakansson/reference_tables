@@ -1,0 +1,69 @@
+---
+title: "Fleet, reference table, documentation"
+author: "Kirsten Birch Håkansson, DTU Aqua"
+date: \today
+output: pdf_document
+---
+
+
+
+```{r setup, include = F}
+
+library(dplyr)
+
+dir_out <- "/output/"
+
+```
+
+#Data 
+
+RDB list with RCG approved metiers (level_6) - AreaCodeFACCodeRegion.csv
+
+```{r data, include = F}
+
+
+rdb <- read.csv("Q:/mynd/SAS Library/FiskeriAktiviteter/references/RDB/AreaCodeFACCodeRegion.csv")
+
+#A bit of renaming and deletion of id's not needed presently
+
+rdb <- select(rename(rdb, area = AreaCode, metier_lvl6 = FishingActivityCategoryEuropeanLvl6Code), area, metier_lvl6)
+
+
+```
+
+
+#obs_at_sea_fleets
+
+Fleet for obserserver at-sea sampling frame:
+
+reduction_SPF:
+
+passive:  
+
+outside_area_27: 
+
+mussels: 
+
+```{r, obs_at_sea_fleets}
+
+fleet <- mutate(rdb, obs_at_sea_fleets = ifelse(substr(area, 1, 2) != "27", "outside_area_27",
+                                         ifelse(substr(metier_lvl6, 1, 7) == "DRB_MOL", "mussels",
+                                         ifelse(substr(metier_lvl6, 1, 3) %in% c("GNS","FPO","FPN","FYK","LHP","LLS","LLD","GTR","GND","MIS","LHM"), "passive",
+                                         ifelse(substr(metier_lvl6, 4, 6) == "SPF" | substr(metier_lvl6, 5, 7) == "SPF", "reduction_SPF",
+                                         ifelse(substr(metier_lvl6, 5, 15) == "DEF_<16_0_0", "reduction_SPF",
+                                         ifelse(substr(metier_lvl6, 5, 13) == "DEF_16-31", "reduction_SPF", "trawler / seiner / TBB")))))))
+
+
+
+obs_at_sea_fleets_test <- distinct(fleet, substr(area, 1, 2), metier_lvl6, obs_at_sea_fleets)               
+        
+
+```
+
+```{r output}
+
+saveRDS(fleet, "fleet.rds")
+
+```
+
+
