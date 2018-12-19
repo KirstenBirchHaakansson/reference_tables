@@ -5,6 +5,7 @@
 
 
 *.pdf
+*.rds
 
 /graphics/
 /output/
