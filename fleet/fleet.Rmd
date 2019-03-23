@@ -28,11 +28,15 @@ rdb <- read.csv("Q:/mynd/SAS Library/FiskeriAktiviteter/references/RDB/AreaCodeF
 
 rdb <- select(rename(rdb, area = AreaCode, metier_lvl6 = FishingActivityCategoryEuropeanLvl6Code), area, metier_lvl6)
 
+dnk_metiers <- readRDS("Q:/mynd/kibi/reference_tables/fleet/dnk_metiers.rds")
+
+
+metiers <- distinct(ungroup(dnk_metiers), fao_area, level_6, merged_level_6, metier_level6_ret)
 
 ```
 
 
-#obs_at_sea_fleets
+# obs_at_sea_fleets
 
 Relating metier level 6 and area with observer at sea fleets
 
@@ -40,24 +44,500 @@ Fleets for observer at-sea sampling frame: reduction_SPF, passive, outside_area_
 
 ```{r obs_at_sea_fleets, include = F}
 
-fleet <- mutate(rdb, obs_at_sea_fleets = ifelse(!(substr(area, 1, 2) %in% c("27")), "outside_area_27.3-4",
-                                         ifelse(substr(metier_lvl6, 1, 7) == "DRB_MOL", "mussels",
-                                         ifelse(substr(metier_lvl6, 1, 3) %in% c("GNS","FPO","FPN","FYK","LHP","LLS","LLD","GTR","GND","MIS","LHM"), "passive",
-                                         ifelse(substr(metier_lvl6, 4, 6) == "SPF" | substr(metier_lvl6, 5, 7) == "SPF", "reduction_SPF",
-                                         ifelse(substr(metier_lvl6, 5, 15) == "DEF_<16_0_0", "reduction_SPF",
-                                         ifelse(substr(metier_lvl6, 5, 13) == "DEF_16-31", "reduction_SPF", 
-                                         ifelse(!(substr(area, 1, 4) %in% c("27.3","27.4")), "outside_area_27.3-4", "rest"))))))))
+fleet <-
+  mutate(metiers,
+         obs_at_sea_fleets = ifelse(
+           !(substr(fao_area, 1, 2) %in% c("27")),
+           "outside_area_27.3-4",
+           ifelse(
+             substr(metier_level6_ret, 1, 7) == "DRB_MOL",
+             "mussels",
+             ifelse(
+               substr(metier_level6_ret, 1, 3) %in% c(
+                 "GNS",
+                 "FPO",
+                 "FPN",
+                 "FYK",
+                 "LHP",
+                 "LLS",
+                 "LLD",
+                 "GTR",
+                 "GND",
+                 "MIS",
+                 "LHM"
+               ),
+               "passive",
+               ifelse(
+                 substr(metier_level6_ret, 4, 6) == "SPF" |
+                   substr(metier_level6_ret, 5, 7) == "SPF",
+                 "reduction_SPF",
+                 ifelse(
+                   substr(metier_level6_ret, 5, 15) == "DEF_<16_0_0",
+                   "reduction_SPF",
+                   ifelse(
+                     substr(metier_level6_ret, 5, 13) == "DEF_16-31",
+                     "reduction_SPF",
+                     ifelse(
+                       substr(metier_level6_ret, 1, 7) == "TBB_DEF",
+                       "TBB>120",
+                       ifelse(!(
+                         substr(fao_area, 1, 4) %in% c("27.3", "27.4")
+                       ), "outside_area_27.3-4", "rest")
+                     )
+                   )
+                 )
+               )
+             )
+           )
+         ))
 
 
 
-obs_at_sea_fleets_test <- distinct(fleet, substr(area, 1, 2), metier_lvl6, obs_at_sea_fleets)               
+obs_at_sea_fleets_test <-
+  distinct(fleet,
+           substr(fao_area, 1, 2),
+           metier_level6_ret,
+           obs_at_sea_fleets)               
         
 
 ```
 
+# merged_metier
+
+20160323: a copy from SAS
+
+*Think about*
+
+OTB_CRU_32-69 / OTB_DEF_32-69: can these be merged or are the def from SPF trips?
+
+TBB_CRU / TBB_DEF: consider merging depending on mesh size - maybe use MCD for larger mesh sizes (equal to OTB)
+
+Spf large meshes: A these realy targeting SPF - either wrong mesh or wrong target (going for DEF, but catching SPF)
+
+
+```{r merged}
+
+
+#Baltic - active - demersal
+
+fleet_1 <-
+  mutate(
+    fleet,
+    merged_metier_level6 = ifelse(
+      substr(metier_level6_ret, 5, 20) == "DEF_90-104_0_0" &
+        !(substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN")),
+      "OTB_DEF_90-104_0_0",
+      ifelse(
+        substr(metier_level6_ret, 5, 20) == "DEF_>=105_1_110" &
+          !(substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN")),
+        "OTB_DEF_>=105_1_120",
+        ifelse(
+          substr(metier_level6_ret, 5, 20) == "DEF_>=105_1_120" &
+            !(substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN")),
+          "OTB_DEF_>=105_1_120",
+          NA
+        )
+      )
+    )
+  )
+
+#Baltic - active - pelagic
+
+fleet_1 <-
+  mutate(
+    fleet_1,
+    merged_metier_level6 = ifelse(
+      substr(metier_level6_ret, 5, 14) %in% c("SPF_16-31_", "SPF_16-104", "SPF_32-89_", "SPF_32-104") &
+        fao_area %in% c(
+          "27.3.d.28",
+          "27.3.d.28.1",
+          "27.3.d.28.2",
+          "27.3.d.29",
+          "27.3.d.30",
+          "27.3.d.31",
+          "27.3.d.32"
+        ),
+      "OTM_SPF_16-104_0_0",
+      ifelse(
+        substr(metier_level6_ret, 5, 14) %in% c("SPF_32-89_", "SPF_32-104") &
+          fao_area %in% c("27.3.b.23", "27.3.c.22"),
+        "OTM_SPF_32-89_0_0",
+        ifelse(
+          substr(metier_level6_ret, 5, 14) %in% c("SPF_32-89_", "SPF_32-104") &
+            fao_area %in% c("27.3.d.24", "27.3.d.25", "27.3.d.26", "27.3.d.27"),
+          "OTM_SPF_32-104_0_0",
+          merged_metier_level6
+        )
+      )
+    )
+  )
+#North Sea, Skaggerak and Kattegat - trawlers
+
+sk <-
+  distinct(filter(fleet_1, fao_area %in% c("27.3.a.20", "27.3.a.21")), metier_level6_ret)
+
+fleet_1 <-
+  mutate(fleet_1,
+         merged_metier_level6 = ifelse(
+           substr(metier_level6_ret, 5, 20) %in% c("MCD_70-99_0_0", "DEF_70-99_0_0", "CRU_70-99_0_0") &
+             !(
+               substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN", "GNS", "TBB", "GND")
+             ),
+           "OTB_MCD_70-99_0_0",
+           ifelse(
+             substr(metier_level6_ret, 5, 20) %in% c("MCD_90-119_0_0", "DEF_90-119_0_0", "CRU_90-119_0_0") &
+               !(
+                 substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN", "GNS", "TBB", "GND")
+               ),
+             "OTB_MCD_90-119_0_0",
+             ifelse(
+               substr(metier_level6_ret, 5, 20) %in% c("MCD_100-119_0_0", "DEF_100-119_0_0", "CRU_100-119_0_0") &
+                 !(
+                   substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN", "GNS", "TBB", "GND")
+                 ),
+               "OTB_MCD_100-119_0_0",
+               ifelse(
+                 substr(metier_level6_ret, 5, 20) %in% c("MCD_>=120_0_0", "DEF_>=120_0_0", "CRU_>=120_0_0") &
+                   !(
+                     substr(metier_level6_ret, 1, 3) %in% c("SSC", "SDN", "GNS", "TBB", "GND")
+                   ),
+                 "OTB_MCD_>=120_0_0",
+                 merged_metier_level6
+               )
+             )
+           )
+         ))
+
+#North Sea, Skaggerak and Kattegat - pelagic
+
+fleet_1 <-
+  mutate(
+    fleet_1,
+    merged_metier_level6 = ifelse(
+      substr(metier_level6_ret, 5, 14) %in% c("SPF_32-69_") &
+        !(substr(fao_area, 1, 6) %in% c("27.3.b", "27.3.c", "27.3.d")) &
+        substr(metier_level6_ret, 1, 2) != "PS",
+      "OTM_SPF_32-69_0_0",
+      merged_metier_level6
+    )
+  )
+
+fleet_1 <-
+  mutate(
+    fleet_1,
+    merged_metier_level6 = ifelse(
+      substr(metier_level6_ret, 5, 14) %in% c("SPF_16-31_") &
+        !(substr(fao_area, 1, 6) %in% c("27.3.b", "27.3.c", "27.3.d")) &
+        substr(metier_level6_ret, 1, 2) != "PS",
+      "OTM_SPF_16-31_0_0",
+      merged_metier_level6
+    )
+  )
+
+#All areas - demersal for reduction
+
+fleet_1 <-
+  mutate(
+    fleet_1,
+    merged_metier_level6 = ifelse(
+      substr(metier_level6_ret, 5, 20) %in% c("DEF_<16_0_0") &
+        substr(metier_level6_ret, 1, 3) %in% c("OTB", "PTB", "OTM", "PTM"),
+      "OTB_DEF_<16_0_0",
+      ifelse(
+        substr(metier_level6_ret, 5, 20) %in% c("DEF_16-31_0_0") &
+          substr(metier_level6_ret, 1, 3) %in% c("OTB", "PTB", "OTM", "PTM"),
+        "OTB_DEF_16-31_0_0",
+        merged_metier_level6
+      )
+    )
+  )
+
+
+test <-
+  distinct(fleet_1, fao_area, metier_level6_ret, merged_metier_level6)
+
+test_1 <-
+  distinct(filter(fleet_1,!(is.na(
+    merged_metier_level6
+  ))),
+  fao_area,
+  metier_level6_ret,
+  merged_metier_level6)
+
+test_2 <-
+  distinct(filter(fleet_1, is.na(merged_metier_level6)),
+           fao_area,
+           metier_level6_ret,
+           merged_metier_level6)
+```
+
+# mixfish_fleet
+
+20190323: Copy from 
+
+```{r}
+
+fleet_2 <- c()
+
+for (i in (1:nrow(fleet_1))) {
+  fleet_1 <-
+    mutate(fleet_1,
+           metier_in = ifelse(
+             is.na(merged_metier_level6),
+             metier_level6_ret ,
+             merged_metier_level6
+           ))
+  
+  fleet_i <- fleet_1[i, ]
+  
+  if (fleet_i$fao_area %in% c("27.3.a.20", "27.3.a.21")) {
+    #TBB
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          metier_in == "TBB_CRU_16-31_0_0",
+          "TBB_CRU_16-31_0_0",
+          ifelse(
+            metier_in %in% c("TBB_DEF_90-119_0_0", "TBB_DEF_90-99_0_0"),
+            "TBB_DEF_90-99_0_0",
+            ifelse(metier_in == "TBB_DEF_>=120_0_0", "TBB_DEF_>=120_0_0", NA)
+          )
+        )
+      )
+    #OTB
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          metier_in == "OTB_CRU_16-31_0_0",
+          "OTB_CRU_16-31_0_0",
+          ifelse(
+            metier_in == "OTB_CRU_32-69_0_0",
+            "OTB_CRU_32-69_0_0",
+            ifelse(
+              metier_in == "OTM_SPF_32-69_0_0",
+              "OTB_SPF_32-69_0_0",
+              ifelse(
+                metier_in == "OTB_MCD_90-119_0_0",
+                "OTB_CRU_90-119_0_0",
+                ifelse(
+                  metier_in == "OTB_MCD_>=120_0_0",
+                  "OTB_DEF_>=120_0_0",
+                  ifelse(
+                    metier_in == "OTB_CRU_70-89_2_35",
+                    "OTB_CRU_70-89_2_35",
+                    mixfish_fleet
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    
+    #SDN & SSC
+    fleet_i <-
+      mutate(fleet_i,
+             mixfish_fleet = ifelse(
+               metier_in %in% c("SDN_DEF_90-119_0_0", "SDN_DEF_>=120_0_0"),
+               "SDN_DEF_>=120_0_0",
+               ifelse(
+                 metier_in %in% c("SSC_DEF_90-119_0_0", "SSC_DEF_>=120_0_0"),
+                 "SSC_DEF_>=120_0_0",
+                 mixfish_fleet
+               )
+             ))
+    
+    #GNS & LLS
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          metier_in == "GNS_DEF_100-119_0_0",
+          "GNS_DEF_100-119_0_0",
+          ifelse(
+            metier_in == "GNS_DEF_120-219_0_0",
+            "GNS_DEF_120-219_0_0",
+            ifelse(
+              metier_in == "GNS_DEF_>=220_0_0",
+              "GNS_DEF_>=220_0_0",
+              ifelse(
+                substr(metier_in, 1, 3) == "LLS",
+                "LLS_FIF_0_0_0",
+                mixfish_fleet
+              )
+            )
+          )
+        )
+      )
+    
+    #MIS_MIS
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          is.na(mixfish_fleet) &
+            substr(metier_in, 9, 11) %in% c("16-", "<16") &
+            substr(metier_in, 5, 7) != "CRU",
+          "MIS_MIS_0_0_0_IBC",
+          ifelse(
+            is.na(mixfish_fleet) &
+              !(substr(metier_in, 9, 11) %in% c("16-", "<16")),
+            "MIS_MIS_0_0_0_HC",
+            mixfish_fleet
+          )
+        )
+      )
+    
+    
+  } else if (fleet_i$fao_area %in% c("27.4.a", "27.4.b", "27.4.c")) {
+    #TBB
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          metier_in == "TBB_CRU_16-31_0_0",
+          "TBB_CRU_16-31_0_0",
+          ifelse(
+            metier_in %in% c("TBB_DEF_70-99_0_0"),
+            "TBB_DEF_70-99_0_0",
+            ifelse(metier_in == "TBB_DEF_>=120_0_0", "TBB_DEF_>=120_0_0", NA)
+          )
+        )
+      )
+    #OTB
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          metier_in == "OTB_CRU_16-31_0_0",
+          "OTB_CRU_16-31_0_0",
+          ifelse(
+            metier_in == "OTB_CRU_32-69_0_0",
+            "OTB_CRU_32-69_0_0",
+            ifelse(
+              metier_in == "OTM_SPF_32-69_0_0",
+              "OTB_SPF_32-69_0_0",
+              ifelse(
+                metier_in == "OTB_MCD_100-119_0_0",
+                "OTB_MCD_>=120_0_0",
+                ifelse(
+                  metier_in == "OTB_MCD_>=120_0_0",
+                  "OTB_DEF_>=120_0_0",
+                  ifelse(
+                    metier_in == "OTB_CRU_70-99_0_0",
+                    "OTB_CRU_70-99_0_0",
+                    mixfish_fleet
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    
+    #SDN & SSC
+    fleet_i <-
+      mutate(fleet_i,
+             mixfish_fleet = ifelse(
+               metier_in %in% c("SDN_DEF_100-119_0_0", "SDN_DEF_>=120_0_0"),
+               "SDN_DEF_>=120_0_0",
+               ifelse(
+                 metier_in %in% c("SSC_DEF_100-119_0_0", "SSC_DEF_>=120_0_0"),
+                 "SSC_DEF_>=120_0_0",
+                 mixfish_fleet
+               )
+             ))
+    #GNS & LLS
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          metier_in == "GNS_DEF_90_99_0_0",
+          "GNS_DEF_100-119_0_0",
+          ifelse(
+            metier_in == "GNS_DEF_100-119_0_0",
+            "GNS_DEF_100-119_0_0",
+            ifelse(
+              metier_in == "GNS_DEF_120-219_0_0",
+              "GNS_DEF_120-219_0_0",
+              ifelse(
+                metier_in == "GNS_DEF_>=220_0_0",
+                "GNS_DEF_>=220_0_0",
+                ifelse(
+                  substr(metier_in, 1, 3) == "LLS",
+                  "LLS_FIF_0_0_0",
+                  ifelse(
+                    metier_in == "FPO_CRU_0_0_0",
+                    "FPO_CRU_0_0_0",
+                    mixfish_fleet
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    
+    #MIS_MIS
+    fleet_i <-
+      mutate(
+        fleet_i,
+        mixfish_fleet = ifelse(
+          is.na(mixfish_fleet) &
+            substr(metier_in, 9, 11) %in% c("16-", "<16") &
+            substr(metier_in, 5, 7) != "CRU",
+          "MIS_MIS_0_0_0_IBC",
+          ifelse(
+            is.na(mixfish_fleet) &
+              !(substr(metier_in, 9, 11) %in% c("16-", "<16")),
+            "MIS_MIS_0_0_0_HC",
+            mixfish_fleet
+          )
+        )
+      )
+    
+    
+  }
+  fleet_2 <- select(bind_rows(fleet_2, fleet_i),-metier_in)
+}
+
+test <-
+  distinct(filter(fleet_2, fao_area %in% c("27.3.a.20", "27.3.a.21")),
+           metier_level6_ret,
+           mixfish_fleet)
+test_2 <-
+  distinct(filter(fleet_2, fao_area %in% c("27.4.a", "27.4.b", "27.4.c")),
+           metier_level6_ret,
+           mixfish_fleet) 
+
+
+```
+
+
+# wgbfas_fleet
+
+```{r wgbfas}
+
+```
+
+
 ```{r output, include = F}
 
-saveRDS(fleet, "fleet.rds")
+matrix_out <-
+  select(
+    fleet_2,
+    fao_area,
+    metier_level6_ret,
+    obs_at_sea_fleets,
+    merged_metier_level6,
+    mixfish_fleet
+  )
+matrix_out <- rename(matrix_out, metier_level6 = metier_level6_ret)
+
+saveRDS(matrix_out, "fleet.rds")
+write.csv(matrix_out, "fleet.csv", row.names = F)
 
 ```
 
