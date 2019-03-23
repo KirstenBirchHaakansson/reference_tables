@@ -1,0 +1,57 @@
+---
+title: "testing_mixfish_fleet"
+author: "Kirsten Birch Håkansson, DTU Aqua"
+date: "23/03/2019"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+library(dplyr)
+library(lubridate)
+library(knitr)
+
+options(scipen = 999, digits = 1)
+
+knitr::opts_chunk$set(echo = TRUE)
+
+years <- c(2018)
+```
+
+
+# Data
+
+Testing mixfish_fleet on DFAD `r unique(years)`
+
+```{r, include = F}
+
+fleet <- readRDS("fleet.rds")
+names(fleet)
+
+dfad <- c()
+
+for (i in years) {
+  
+  dfad_0 <- readRDS(paste("Q:/dfad/data/Data/udvidet_data/dfad_udvidet", i, ".rds", sep = ""))
+  dfad_0 <- mutate(dfad_0, year = year(ldato))
+  
+  dfad_0 <- summarise(group_by(dfad_0, year, fao_area, metier_level6_ret, art), kg = sum(hel, na.rm = T), trips = length(unique(match_alle)))
+  
+  dfad <- bind_rows(dfad, dfad_0)
+}
+  
+
+test <- left_join(dfad_0, distinct(fleet, fao_area, metier_level6, mixfish_fleet), by = c("fao_area" = "fao_area", "metier_level6_ret" = "metier_level6"))
+
+test_sum <- summarise(group_by(test, fao_area, metier_level6_ret, mixfish_fleet), ton = sum(kg/1000), trips = sum(trips))
+
+```
+
+```{r, results = 'asis'}
+
+kable(arrange(test_sum, mixfish_fleet))
+
+```
+
+
+
