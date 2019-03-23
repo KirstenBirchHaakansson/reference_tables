@@ -15,9 +15,9 @@ dir_out <- "/output/"
 
 ```
 
-#Data 
+# Data 
 
-RDB list with RCG approved metiers (level_6) - AreaCodeFACCodeRegion.csv
+Input a list of all metiers used 1987-2018
 
 ```{r data, include = F}
 
@@ -104,7 +104,7 @@ obs_at_sea_fleets_test <-
 
 # merged_metier
 
-20160323: a copy from SAS
+20160323: a copy from the old sas program (Matrix_Merged_level_6_Mix_WG.sas)
 
 *Think about*
 
@@ -273,7 +273,7 @@ test_2 <-
 
 # mixfish_fleet
 
-20190323: Copy from 
+20160323: a copy from the old sas program (Matrix_Merged_level_6_Mix_WG.sas)
 
 ```{r}
 
@@ -288,7 +288,7 @@ for (i in (1:nrow(fleet_1))) {
              merged_metier_level6
            ))
   
-  fleet_i <- fleet_1[i, ]
+  fleet_i <- fleet_1[i,]
   
   if (fleet_i$fao_area %in% c("27.3.a.20", "27.3.a.21")) {
     #TBB
@@ -319,15 +319,19 @@ for (i in (1:nrow(fleet_1))) {
               metier_in == "OTM_SPF_32-69_0_0",
               "OTB_SPF_32-69_0_0",
               ifelse(
-                metier_in == "OTB_MCD_90-119_0_0",
-                "OTB_CRU_90-119_0_0",
+                metier_in == "PS_SPF_32-69_0_0",
+                "OTB_SPF_32-69_0_0",
                 ifelse(
-                  metier_in == "OTB_MCD_>=120_0_0",
-                  "OTB_DEF_>=120_0_0",
+                  metier_in == "OTB_MCD_90-119_0_0",
+                  "OTB_CRU_90-119_0_0",
                   ifelse(
-                    metier_in == "OTB_CRU_70-89_2_35",
-                    "OTB_CRU_70-89_2_35",
-                    mixfish_fleet
+                    metier_in == "OTB_MCD_>=120_0_0",
+                    "OTB_DEF_>=120_0_0",
+                    ifelse(
+                      metier_in == "OTB_CRU_70-89_2_35",
+                      "OTB_CRU_70-89_2_35",
+                      mixfish_fleet
+                    )
                   )
                 )
               )
@@ -391,7 +395,7 @@ for (i in (1:nrow(fleet_1))) {
       )
     
     
-  } else if (fleet_i$fao_area %in% c("27.4.a", "27.4.b", "27.4.c")) {
+  } else if (fleet_i$fao_area %in% c("27.4.a", "27.4.b", "27.4.c", "27.7.d", "27.6.a")) {
     #TBB
     fleet_i <-
       mutate(
@@ -420,15 +424,19 @@ for (i in (1:nrow(fleet_1))) {
               metier_in == "OTM_SPF_32-69_0_0",
               "OTB_SPF_32-69_0_0",
               ifelse(
-                metier_in == "OTB_MCD_100-119_0_0",
-                "OTB_MCD_>=120_0_0",
+                metier_in == "PS_SPF_32-69_0_0",
+                "OTB_SPF_32-69_0_0",
                 ifelse(
-                  metier_in == "OTB_MCD_>=120_0_0",
-                  "OTB_DEF_>=120_0_0",
+                  metier_in == "OTB_MCD_100-119_0_0",
+                  "OTB_MCD_>=120_0_0",
                   ifelse(
-                    metier_in == "OTB_CRU_70-99_0_0",
-                    "OTB_CRU_70-99_0_0",
-                    mixfish_fleet
+                    metier_in == "OTB_MCD_>=120_0_0",
+                    "OTB_DEF_>=120_0_0",
+                    ifelse(
+                      metier_in == "OTB_MCD_70-99_0_0",
+                      "OTB_CRU_70-99_0_0",
+                      mixfish_fleet
+                    )
                   )
                 )
               )
@@ -454,7 +462,7 @@ for (i in (1:nrow(fleet_1))) {
       mutate(
         fleet_i,
         mixfish_fleet = ifelse(
-          metier_in == "GNS_DEF_90_99_0_0",
+          metier_in == "GNS_DEF_90-99_0_0",
           "GNS_DEF_100-119_0_0",
           ifelse(
             metier_in == "GNS_DEF_100-119_0_0",
@@ -500,7 +508,7 @@ for (i in (1:nrow(fleet_1))) {
     
     
   }
-  fleet_2 <- select(bind_rows(fleet_2, fleet_i),-metier_in)
+  fleet_2 <- select(bind_rows(fleet_2, fleet_i), -metier_in)
 }
 
 test <-
@@ -508,9 +516,12 @@ test <-
            metier_level6_ret,
            mixfish_fleet)
 test_2 <-
-  distinct(filter(fleet_2, fao_area %in% c("27.4.a", "27.4.b", "27.4.c")),
-           metier_level6_ret,
-           mixfish_fleet) 
+  distinct(filter(
+    fleet_2,
+    fao_area %in% c("27.4.a", "27.4.b", "27.4.c", "27.7.d", "27.6.a")
+  ),
+  metier_level6_ret,
+  mixfish_fleet)
 
 
 ```
@@ -526,7 +537,7 @@ test_2 <-
 ```{r output, include = F}
 
 matrix_out <-
-  select(
+  distinct(
     fleet_2,
     fao_area,
     metier_level6_ret,
