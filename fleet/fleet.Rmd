@@ -428,7 +428,7 @@ for (i in (1:nrow(fleet_1))) {
                 "OTB_SPF_32-69_0_0",
                 ifelse(
                   metier_in == "OTB_MCD_100-119_0_0",
-                  "OTB_MCD_>=120_0_0",
+                  "OTB_DEF_>=120_0_0",
                   ifelse(
                     metier_in == "OTB_MCD_>=120_0_0",
                     "OTB_DEF_>=120_0_0",
