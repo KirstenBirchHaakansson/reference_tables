@@ -4,16 +4,12 @@
 # author: "Kirsten Birch Håkansson, DTU Aqua"
 
 # Setup ----
+rm(list = ls())
 
 library(RODBC)
 library(sqldf)
 library(dplyr)
-library(knitr)
 library(lubridate)
-library(RColorBrewer)
-library(viridis)
-library(ggplot2)
-library(readxl)
 
 ####################################################################
 
@@ -21,15 +17,13 @@ years <- 2019 # only a single
 
 cruises <- c("MON", "SEAS", "IN-LYNG", "IN-HIRT")
 
-lh_name <- "observer_at_sea_sampling_frame_2019-01-04.xlsx"
-
 ####################################################################
 
-ref_path <- "Q:/mynd/kibi/reference_tables/sampling_scheme/"
+ref_path <- "Q:/mynd/kibi/reference_tables/sampling_schemes/"
 
 output_path <- "Q:/mynd/kibi/reference_tables/link_fishline_dfad_to_sampling_schemes/"
 
-lh_path <- "Q:/dfad/data/Data/Lykkehjul/Listerne/"
+lh_file <- paste0("Q:/mynd/kibi/reference_tables/sampling_frames/", "lykkehjul_", years, ".csv")
 
 # Get Sampling schemes ----
 
@@ -58,22 +52,7 @@ close(channel)
 
 # Get lykkehjul ----
 
-lh <- read_xlsx(paste0(lh_path, lh_name), sheet = 1)
-
-distinct(subset(ss, samplingScheme == "DNK_AtSea_Observer_Active"), stratumName)
-
-distinct(lh, strata_location, strata_fleet, strata_area)
-
-lh$stratumName <- gsub(" NA", "", paste(lh$strata_location, gsub(" ", "", tolower(lh$strata_fleet)), lh$strata_area))
-
-distinct(lh, stratumName)
-
-lh$stratumName[lh$stratumName == "Lyngby hesterejer"] <- "Crangon"
-lh$stratumName[lh$stratumName == "Hirtshals otb_cru_32-69_0_0"] <- "Pandalus"
-
-test <- inner_join(lh, distinct(ss, samplingScheme, stratumName))
-
-lh_ok <- distinct(lh, fid, stratumName)
+lh <- read.csv(lh_file, sep = ";")
 
 # Make DNK_Market_Sampling ----
 
@@ -127,7 +106,7 @@ ss_AOA <-
 samp_AOA <- subset(samp, cruise %in% c("MON", "SEAS"))
 samp_AOA$quarter <- quarter(samp_AOA$dateStart)
 
-samp_lh <- left_join(samp_AOA, lh_ok, by = c("platform1" = "fid"))
+samp_lh <- left_join(samp_AOA, lh, by = c("platform1" = "fid", "year" = "year"))
 
 samp_lh_uniq <- distinct(samp_lh, tripId, year, cruise, trip, platform1, stratumName, quarter)
 
@@ -151,7 +130,7 @@ ss_AOA_ok$selectionMethod[is.na(ss_AOA_ok$stratumName)] <- "NPCS"
 ss_AOA_ok$sampled[is.na(ss_AOA_ok$stratumName)] <- "Y"
 ss_AOA_ok$reasonNotSampled[is.na(ss_AOA_ok$stratumName)] <- ""
 
-rm(lh, lh_ok, samp_AOA, samp_lh, samp_lh_uniq, ss_AOA, test, test_no_stratum)
+rm(lh, samp_AOA, samp_lh, samp_lh_uniq, ss_AOA, test, test_no_stratum)
 
 # Merge linkage and out put ----
 
