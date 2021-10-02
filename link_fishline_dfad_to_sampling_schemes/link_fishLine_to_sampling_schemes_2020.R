@@ -17,11 +17,11 @@ library(readxl)
 
 ####################################################################
 
-years <- 2019 # only a single
+years <- 2020 # only a single
 
 cruises <- c("MON", "SEAS", "IN-LYNG", "IN-HIRT")
 
-lh_name <- "observer_at_sea_sampling_frame_2019-01-04.xlsx"
+lh_name <- "observer_at_sea_sampling_frame_2019-12-16.xlsx"
 
 ####################################################################
 
